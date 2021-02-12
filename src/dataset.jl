@@ -29,7 +29,8 @@ Base.eachcol(ds::AbstractDataset) = (ds[:, i] for i in 1:size(ds, 2))
 Base.eachrow(ds::AbstractDataset) = ds.data
 
 # 1D indexing over the container elements:
-@inline Base.getindex(d::AbstractDataset, i) = d.data[i]
+@inline Base.getindex(d::AbstractDataset, i::Int) = d.data[i]
+@inline Base.getindex(d::AbstractDataset, i) = Dataset(d.data[i])
 @inline Base.lastindex(d::AbstractDataset) = length(d)
 @inline Base.lastindex(d::AbstractDataset, k) = size(d)[k]
 @inline Base.firstindex(d::AbstractDataset) = 1
@@ -38,19 +39,19 @@ Base.eachrow(ds::AbstractDataset) = ds.data
 # 2D indexing exactly like if the dataset was a matrix
 # with each column a dynamic variable
 @inline Base.getindex(d::AbstractDataset, i::Int, j::Int) = d.data[i][j]
-@inline Base.getindex(d::AbstractDataset, i::Colon, j::Int) =
+@inline Base.getindex(d::AbstractDataset, ::Colon, j::Int) =
 [d.data[k][j] for k in 1:length(d)]
-@inline Base.getindex(d::AbstractDataset, i::Int, j::Colon) = d.data[i]
-@inline Base.getindex(d::AbstractDataset, r::AbstractRange) = d.data[r]
+@inline Base.getindex(d::AbstractDataset, i::Int, ::Colon) = d.data[i]
 # Indexing with ranges
-@inline Base.getindex(d::AbstractDataset, i::AbstractRange, j::Int) =
+@inline Base.getindex(d::AbstractDataset, i::AbstractVector, j::Int) =
 [d.data[k][j] for k in i]
-@inline Base.getindex(d::AbstractDataset, i::AbstractRange, ::Colon) =
+@inline Base.getindex(d::AbstractDataset, i::AbstractVector, ::Colon) =
 Dataset([d[k] for k in i])
-@inline Base.getindex(d::AbstractDataset, i::Int, j::AbstractRange) =
+@inline Base.getindex(d::AbstractDataset, i::Int, j::AbstractVector) =
 [d.data[i][k] for k in j]
+@inline Base.getindex(d::AbstractDataset, ::Colon, ::Colon) = d
 # Indexing with boolean vectors
-Base.getindex(d::AbstractDataset, i::AbstractVector{Bool}, j::Colon) =
+Base.getindex(d::AbstractDataset, i::AbstractVector{Bool}, ::Colon) =
 Dataset(d[i])
 
 # this function could be done generated
@@ -69,7 +70,7 @@ end
 
 function Base.getindex(d::AbstractDataset{D,T},
     ::Colon, j::AbstractVector{Int}) where {D, T}
-    return Base.getindex(d, 1:length(d), j)
+    return Dataset(Base.getindex(d, 1:length(d), j))
 end
 
 """
@@ -141,9 +142,7 @@ In the following let `i, j` be integers,  `typeof(data) <: AbstractDataset`
 and `v1, v2` be `<: AbstractVector{Int}` (`v1, v2` could also be ranges).
 
 * `data[i]` gives the `i`th datapoint (returns an `SVector`)
-* `data[v1]` will return a vector of datapoints
-* `data[v1, :]` using a `Colon` as a second index will return a `Dataset` of
-  these points
+* `data[v1] == data[v1, :]`, returns a `Dataset` with the points in those indices.
 * `data[:, j]` gives the `j`th variable timeseries, as `Vector`
 * `data[v1, v2]` returns a `Dataset` with the appropriate entries (first indices
   being "time"/point index, while second being variables)
